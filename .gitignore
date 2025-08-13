@@ -1,0 +1,3 @@
+# Ignore everything except agent file
+*
+!MyAgent.java
