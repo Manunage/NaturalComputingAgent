@@ -8,17 +8,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
-// TODO: Implement the logic for using the book of grudges and a default strategy
-// The code now correctly calculates who attacked us and the strength of the grudge (total soldiers lost).
-// It also reads and writes grudges from a file.
-
-// TODO Settle grudges
+//TODO Settle grudges
 // When turn begins, check the book of grudges and attack accordingly
 // After that, follow some default strategy
 
-// TODO Default strategy
+//TODO Default strategy
 // If there are empty nodes in range, expand defensively every turn
 // If there are no empty nodes in range, fortify borders
 // (that means moving soldiers from "safe" nodes to the edges of the empire)
@@ -53,6 +48,7 @@ public class MyAgent {
     private int maxSoldiers;
     private int visibilityRange;
     private Random random = new Random();
+    private boolean mustOccupyThisTurn;
 
     public MyAgent(int step, String name) {
         this.step = step;
@@ -115,6 +111,10 @@ public class MyAgent {
     }
 
     private List<String> calculateMoves() {
+        // Set the boolean field based on the check.
+        this.mustOccupyThisTurn = checkIfMustOccupyNode();
+        System.out.println("Must move this turn: " + this.mustOccupyThisTurn);
+
         List<String> grudges = figureOutGrudges(this.step - 1);
         System.out.println("Grudges from last turn: " + grudges);
 
@@ -319,6 +319,63 @@ public class MyAgent {
                 return parts.length / 2;
             }
         }
+    }
+
+    /**
+     * Checks if the agent has failed to occupy a new node in the last four turns
+     * by comparing the owner strings from previous turns.
+     *
+     * @return True if the agent has not expanded for four turns, false otherwise.
+     */
+    private boolean checkIfMustOccupyNode() {
+        if (this.step < 5) {
+            return false;
+        }
+
+        // Check for expansion in the last 4 turns
+        for (int i = 1; i <= 4; i++) {
+            List<String> currentOwners = getOwnersAtStep(this.step - i + 1);
+            List<String> previousOwners = getOwnersAtStep(this.step - i);
+
+            if (currentOwners.isEmpty() || previousOwners.isEmpty()) {
+                continue; // Can't compare, so skip
+            }
+
+            // Iterate through each node and check for a new acquisition
+            for (int j = 0; j < currentOwners.size(); j++) {
+                if ("Y".equals(currentOwners.get(j)) && !"Y".equals(previousOwners.get(j))) {
+                    // Found a new node, so we don't need to move this turn
+                    return false;
+                }
+            }
+        }
+
+        return true; // No expansion found in the last 4 turns
+    }
+
+    /**
+     * Helper method to get the list of owners at a specific step from the state file.
+     *
+     * @param step The step number to check.
+     * @return A List of strings representing node ownership, or an empty list if the file cannot be read.
+     */
+    private List<String> getOwnersAtStep(int step) {
+        List<String> owners = new ArrayList<>();
+        if (step < 0) {
+            return owners;
+        }
+
+        try (BufferedReader reader = new BufferedReader(new FileReader(this.name + "/" + step + ".txt"))) {
+            // Skip the first line (soldier counts)
+            reader.readLine();
+            String ownersLine = reader.readLine();
+            if (ownersLine != null) {
+                owners = java.util.Arrays.asList(ownersLine.split(","));
+            }
+        } catch (IOException e) {
+            System.err.println("Error reading state file for step " + step + ": " + e.getMessage());
+        }
+        return owners;
     }
 
     public static void main(String[] args) {
